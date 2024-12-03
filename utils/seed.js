@@ -61,7 +61,7 @@ const checkRestaurantExist = async () => {
     }
 };
 
-// Create new restaurant if not already existing
+
 const createRestaurant = async () => {
     try {
         const restaurantExist = await checkRestaurantExist();
@@ -93,7 +93,7 @@ const createRestaurant = async () => {
     }
 };
 
-// Run the seeding
+
 const seedDatabase = async () => {
     await createRestaurant();
     await createPopularCategories();

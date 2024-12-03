@@ -7,6 +7,8 @@ const Cards = require("../schema/user.schema");
 const authMiddleware = require('../middleware/Auth')
 const isAuth = require('../utils/index')
 const { getUserIdByEmail } = require("../utils/index")
+const { v4: uuidv4 } = require('uuid');
+
 
 router.post("/register", async (req, res) => {
     const { name, email, password } = req.body;
@@ -73,9 +75,9 @@ router.get("/profile", authMiddleware, async (req, res) => {
 
 router.post("/update", authMiddleware, async (req, res) => {
     const { name, email, gender, country } = req.body;
-    const createdByUserId = (await getUserIdByEmail(req.user)).toString();
+    const userId = (await getUserIdByEmail(req.user)).toString();
     try {
-        const user = await User.findById(createdByUserId);
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -96,65 +98,61 @@ router.post("/update", authMiddleware, async (req, res) => {
 
 })
 router.put("/addupdatecard", authMiddleware, async (req, res) => {
-    const { cardHolderName, expiryDate, cvc, cardNumber, isPrimary } = req.body;
-    const userId = (await getUserIdByEmail(req.user)).toString();
+    const { cardId, cardHolderName, expiryDate, cvc, cardNumber, isPrimary } = req.body;
 
-    // Validate required fields
     if (!cardHolderName || !expiryDate || !cvc || !cardNumber) {
         return res.status(400).json({ message: "All card details are required." });
     }
 
     try {
+        const userId = (await getUserIdByEmail(req.user)).toString();
         const user = await User.findById(userId);
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        // Find the existing card in the user's cards array
-        const existingCardIndex = user.cards.findIndex(
-            (card) => card.cardNumber === cardNumber
-        );
+        if (cardId) {
+            const existingCardIndex = user.cards.findIndex(
+                (card) => card.cardId === cardId
+            );
 
-        if (existingCardIndex !== -1) {
-            // Update the existing card
-            user.cards[existingCardIndex] = {
-                ...user.cards[existingCardIndex]._doc, // Ensure existing fields are preserved
-                cardHolderName,
-                expiryDate,
-                cvc,
-                isPrimary: isPrimary || false,
-            };
+            if (existingCardIndex !== -1) {
+               
+                user.cards[existingCardIndex] = {
+                    ...user.cards[existingCardIndex]._doc,
+                    cardHolderName,
+                    expiryDate,
+                    cvc,
+                    isPrimary: isPrimary || user.cards[existingCardIndex].isPrimary,
+                };
 
-            // Ensure only one card is marked as primary
-            if (isPrimary) {
-                user.cards.forEach((card, index) => {
-                    if (index !== existingCardIndex) {
-                        card.isPrimary = false;
-                    }
-                });
+                if (isPrimary) {
+                    user.cards.forEach((card, idx) => {
+                        if (idx !== existingCardIndex) card.isPrimary = false;
+                    });
+                }
+            } else {
+                return res.status(404).json({ message: "Card not found for the provided cardId." });
             }
         } else {
-            // Add a new card
-            user.cards.push({
+           
+            const newCard = {
+                cardId: uuidv4(),
                 cardHolderName,
                 expiryDate,
                 cvc,
                 cardNumber,
                 isPrimary: isPrimary || false,
-            });
+            };
 
-            // Ensure only one card is marked as primary
             if (isPrimary) {
-                user.cards.forEach((card) => {
-                    if (card.cardNumber !== cardNumber) {
-                        card.isPrimary = false;
-                    }
-                });
+                user.cards.forEach(card => card.isPrimary = false);
             }
+
+            user.cards.push(newCard);
         }
 
-        // Save the updated user document
         await user.save({ validateModifiedOnly: true });
 
         res.status(200).json({
@@ -169,33 +167,148 @@ router.put("/addupdatecard", authMiddleware, async (req, res) => {
 
 
 router.delete("/deletecard/:cardId", authMiddleware, async (req, res) => {
-    const { cardId } = req.params; 
-    const userId = (await getUserIdByEmail(req.user)).toString(); 
+    const { cardId } = req.params;
+
     try {
-       
+        const userId = (await getUserIdByEmail(req.user)).toString();
         const user = await User.findById(userId);
+
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        const cardIndex = user.cards.findIndex((card) => card._id.toString() === cardId);
+        const cardIndex = user.cards.findIndex((card) => card.cardId === cardId);
         if (cardIndex === -1) {
             return res.status(404).json({ message: "Card not found." });
         }
 
-       
-        user.cards.splice(cardIndex, 1);
+        user.cards.splice(cardIndex, 1); 
         await user.save();
 
         res.status(200).json({
             message: "Card deleted successfully.",
-            cards: user.cards, // Return the updated list of cards
+            cards: user.cards,
         });
     } catch (error) {
         console.error("Error deleting card:", error);
         res.status(500).json({ message: "An error occurred while deleting the card." });
     }
 });
+
+
+router.put("/addupdateaddress", authMiddleware, async (req, res) => {
+    const { addId, state, city, postalCode, phoneNumber, fullAddress, isPrimary } = req.body;
+
+    if (!state || !city || !postalCode || !phoneNumber || !fullAddress) {
+        return res.status(400).json({ message: "All address details are required." });
+    }
+
+    try {
+        const userId = (await getUserIdByEmail(req.user)).toString();
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        if (addId) {
+
+            const existingAddressIndex = user.addresses.findIndex(
+                (address) => address.addId === addId
+            );
+
+            if (existingAddressIndex !== -1) {
+                user.addresses[existingAddressIndex] = {
+                    ...user.addresses[existingAddressIndex]._doc,
+                    state,
+                    city,
+                    postalCode,
+                    phoneNumber,
+                    fullAddress,
+                    isPrimary: isPrimary || user.addresses[existingAddressIndex].isPrimary,
+                };
+
+                if (isPrimary) {
+                    user.addresses.forEach((addr, idx) => {
+                        if (idx !== existingAddressIndex) addr.isPrimary = false;
+                    });
+                }
+            } else {
+                return res.status(404).json({ message: "Address not found for the provided addId." });
+            }
+        } else {
+
+            const newAddress = {
+                addId: uuidv4(),
+                state,
+                city,
+                postalCode,
+                phoneNumber,
+                fullAddress,
+                isPrimary: isPrimary || false,
+            };
+
+            if (isPrimary) {
+                user.addresses.forEach(addr => addr.isPrimary = false);
+            }
+
+            user.addresses.push(newAddress);
+        }
+
+        await user.save({ validateModifiedOnly: true });
+
+        res.status(200).json({
+            message: "Address added or updated successfully.",
+            addresses: user.addresses,
+        });
+    } catch (error) {
+        console.error("Error saving or updating address:", error);
+        res.status(500).json({ message: "An error occurred while saving or updating the address." });
+    }
+});
+router.delete("/deleteaddress/:addId", authMiddleware, async (req, res) => {
+    const { addId } = req.params;
+
+    if (!addId) {
+        return res.status(400).json({ message: "Address ID is required." });
+    }
+
+    try {
+        const userId = (await getUserIdByEmail(req.user)).toString();
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const addressIndex = user.addresses.findIndex(
+            (address) => address.addId === addId
+        );
+
+        if (addressIndex === -1) {
+            return res.status(404).json({ message: "Address not found for the provided ID." });
+        }
+
+       
+        const deletedAddress = user.addresses.splice(addressIndex, 1);
+
+       
+        if (deletedAddress[0].isPrimary && user.addresses.length > 0) {
+            user.addresses[0].isPrimary = true;
+        }
+
+        await user.save({ validateModifiedOnly: true });
+
+        res.status(200).json({
+            message: "Address deleted successfully.",
+            addresses: user.addresses,
+        });
+    } catch (error) {
+        console.error("Error deleting address:", error);
+        res.status(500).json({ message: "An error occurred while deleting the address." });
+    }
+});
+
 
 module.exports = router;
 

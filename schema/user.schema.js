@@ -1,7 +1,13 @@
 const mongoose = require("mongoose");
-
+const { v4: uuidv4 } = require('uuid');
 
 const cardSchema = new mongoose.Schema({
+    cardId: {
+        type: String,
+        required: true,
+        unique: true,
+        default: uuidv4,
+    },
     cardHolderName: {
         type: String,
         required: true
@@ -23,13 +29,44 @@ const cardSchema = new mongoose.Schema({
         default: false,
     },
 });
-
-
+const addressSchema = new mongoose.Schema({
+    addId: {
+        type: String,
+        required: true,
+        unique: true,
+        default: uuidv4,
+    },
+    state: {
+        type: String,
+        required: true,
+    },
+    city: {
+        type: String,
+        required: true,
+    },
+    postalCode: {
+        type: String,
+        required: true,
+    },
+    phoneNumber: {
+        type: String,
+        required: true,
+    },
+    fullAddress: {
+        type: String,
+        required: true,
+    },
+    isPrimary: {
+        type: Boolean,
+        default: false,
+    },
+});
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true
     },
+
     email: {
         type: String,
         required: true,
@@ -51,6 +88,7 @@ const userSchema = new mongoose.Schema({
         type: String,
     },
     cards: [cardSchema],
+    addresses: [addressSchema]
 }, {
     timestamps: true,
 });
