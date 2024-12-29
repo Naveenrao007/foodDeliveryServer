@@ -118,25 +118,29 @@ router.put("/addupdatecard", authMiddleware, async (req, res) => {
             );
 
             if (existingCardIndex !== -1) {
-               
+                // Only update the existing card if it's found
                 user.cards[existingCardIndex] = {
                     ...user.cards[existingCardIndex]._doc,
                     cardHolderName,
                     expiryDate,
                     cvc,
+                    cardNumber,  // Ensure cardNumber is updated as well
                     isPrimary: isPrimary || user.cards[existingCardIndex].isPrimary,
                 };
 
+                // If this card is marked as primary, make all other cards non-primary
                 if (isPrimary) {
                     user.cards.forEach((card, idx) => {
                         if (idx !== existingCardIndex) card.isPrimary = false;
                     });
                 }
+
+                // Don't push a new card, we just update the existing one
             } else {
                 return res.status(404).json({ message: "Card not found for the provided cardId." });
             }
         } else {
-           
+            // If no cardId is provided, add a new card
             const newCard = {
                 cardId: uuidv4(),
                 cardHolderName,
@@ -153,10 +157,12 @@ router.put("/addupdatecard", authMiddleware, async (req, res) => {
             user.cards.push(newCard);
         }
 
+        // Save the updated user document
         await user.save({ validateModifiedOnly: true });
 
+        // Return the appropriate message based on whether it was an update or addition
         res.status(200).json({
-            message: "Card added or updated successfully.",
+            message: cardId ? "Card updated successfully." : "Card added successfully.",
             cards: user.cards,
         });
     } catch (error) {
@@ -164,6 +170,7 @@ router.put("/addupdatecard", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "An error occurred while saving or updating the card." });
     }
 });
+
 
 
 router.delete("/deletecard/:cardId", authMiddleware, async (req, res) => {
@@ -182,8 +189,9 @@ router.delete("/deletecard/:cardId", authMiddleware, async (req, res) => {
             return res.status(404).json({ message: "Card not found." });
         }
 
-        user.cards.splice(cardIndex, 1); 
-        await user.save();
+        user.cards.splice(cardIndex, 1);
+
+        await user.save({ validateModifiedOnly: true });
 
         res.status(200).json({
             message: "Card deleted successfully.",
@@ -194,6 +202,7 @@ router.delete("/deletecard/:cardId", authMiddleware, async (req, res) => {
         res.status(500).json({ message: "An error occurred while deleting the card." });
     }
 });
+
 
 
 router.put("/addupdateaddress", authMiddleware, async (req, res) => {
@@ -289,10 +298,10 @@ router.delete("/deleteaddress/:addId", authMiddleware, async (req, res) => {
             return res.status(404).json({ message: "Address not found for the provided ID." });
         }
 
-       
+
         const deletedAddress = user.addresses.splice(addressIndex, 1);
 
-       
+
         if (deletedAddress[0].isPrimary && user.addresses.length > 0) {
             user.addresses[0].isPrimary = true;
         }

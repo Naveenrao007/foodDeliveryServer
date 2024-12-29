@@ -28,20 +28,6 @@ async function getUserIdByEmail(email) {
   }
 }
 
-// async function getUserIdByCardNum(num) {
-//   try {
-//     const card = await Cards.findOne({ num });
-//     if (card) {
-//       return card._id;
-//     } else {
-//       throw new Error("Card not found");
-//     }
-//   } catch (error) {
-//     console.error("Error fetching card ID:", error);
-//     throw error;
-//   }
-// }
-
 
 
 module.exports = { isAuth, getUserIdByEmail }
